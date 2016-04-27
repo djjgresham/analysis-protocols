@@ -69,21 +69,36 @@ for (fz in names(datz)) {
   }
 }
 dim(lrgdf)
+originallrgdf <- lrgdf
+lrgdf <- subset(lrgdf,dye=="sytoxgreen"&pretreatment=="rnase_pk")
 ```
 
-Now that we have that, we can 
+Now that we have that, we can start gating. I gate like a neadertal.
+Note that I'm plotting a random subset of rows in order to make this 
+plot more quickly.
 
-```{r, warning=F, cache=F,error=F}
-ggplot(lrgdf[sample(1:nrow(lrgdf),1e5),])+theme_bw()+
-  aes(x=log(FSC.A),y=log(FSC.H))+facet_grid(sample~pretreatment)+
-  geom_point(size=.5,alpha=.005)
+```{r, warning=F, cache=T,error=F}
+g <- ggplot(lrgdf[sample(1:nrow(lrgdf),1e4),])+
+  aes(x=log(FSC.A),y=log(FSC.H))+
+  geom_point(size=.5,alpha=.05)
+g
+g+geom_vline(xintercept=10.5)
+g+geom_vline(xintercept=10.5)+geom_abline(slope=0.9,intercept=1.6)
+subdf<-subset(lrgdf,log(FSC.A)>10.5&(log(FSC.H)>log(FSC.A)*0.9+1.6))
+```
 
-ggplot(lrgdf[sample(1:nrow(lrgdf),1e5),])+theme_bw()+
-  aes(x=log(FSC.A),y=log(FL1.A))+facet_grid(pretreatment~sample)+
-  geom_point(size=.5,alpha=.005)+
-  geom_hline(yintercept=13,linetype="dashed")
+```{r,cache=T}
+g <- ggplot(subdf[sample(1:nrow(subdf),size=1e4),])+
+  aes(x=log(FSC.A),y=log(FL1.A))+
+  geom_point(size=.5,alpha=.05)+
+  facet_wrap(~sample)
+g
+g+geom_hline(yintercept=13)
+subdf <- subset(subdf,log(FL1.A)>13)
+```
 
-subdf <- subset(lrgdf,log(FL1.A)>13&pretreatment!="neg")
+```{r}
+
 
 ggplot(subset(subdf)[sample(1:nrow(subdf),1e5),])+theme_bw()+
   aes(x=log10(FL1.A),color=pretreatment)+
@@ -94,26 +109,5 @@ ggplot(subset(subdf)[sample(1:nrow(subdf),1e5),])+theme_bw()+
     position="identity",cex=.2)+
   theme(legend.position="bottom")
 
-g <- ggplot(subset(subdf,pretreatment=="rnase_pk"))+theme_bw()+
-  aes(x=log10(FSC.H),y=log10(FL1.H))+facet_wrap(~sample)+
-  geom_point(size=0.1,alpha=.010)+
-  xlab("log10(FSC.H), approx cell size")+
-  ylab("log10(FL1.H), approx DNA content")+
-  xlim(4.25,6.5)+ylim(5.9,6.5)
-g
-#ggsave("/home/zed/lab/outz/figz/160108exp154fl1hfsch.png",g,
-#  width=6,height=6)
-g <- ggplot(subset(subdf,pretreatment=="rnase_pk"))+theme_bw()+
-  aes(x=log10(FL1.H))+
-  facet_wrap(~sample)+
-  stat_bin(aes(y = ..density..),binwidth=0.005,geom="line",
-    position="identity",cex=.5)+
-  stat_bin(aes(y = ..density..),binwidth=0.005,geom="point",
-    position="identity",cex=.2)+
-  theme(legend.position="bottom")+
-  xlim(5.90,6.5)
-g
-#ggsave("/home/zed/lab/outz/figz/160108exp154fl1hdensity.png",g,
-#  width=6,height=6)
 
 ```
