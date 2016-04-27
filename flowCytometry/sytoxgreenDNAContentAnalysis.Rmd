@@ -98,16 +98,24 @@ subdf <- subset(subdf,log(FL1.A)>13)
 ```
 
 ```{r}
+g <- ggplot(subdf)+
+  aes(x=log(FSC.A),y=log(FL1.A))+
+  geom_point(size=.5,alpha=.05)+
+  facet_wrap(~sample)
+g+coord_cartesian(xlim=c(10.5,14.5),ylim=c(13,15))
+```
 
-
-ggplot(subset(subdf)[sample(1:nrow(subdf),1e5),])+theme_bw()+
-  aes(x=log10(FL1.A),color=pretreatment)+
-  facet_wrap(~sample)+
+```{r}
+ggplot(subdf)+
+  aes(x=log10(FL1.A),col=sample)+
   stat_bin(aes(y = ..density..),binwidth=0.005,geom="line",
     position="identity",cex=.5)+
   stat_bin(aes(y = ..density..),binwidth=0.005,geom="point",
     position="identity",cex=.2)+
+  coord_cartesian(xlim=c(5.9,6.6))+
   theme(legend.position="bottom")
-
-
 ```
+
+One of these days, I'll write up how to use `mle2` to fit a mixed
+model to estimate cell cycle contribution.
+
