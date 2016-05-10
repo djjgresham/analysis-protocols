@@ -1,0 +1,144 @@
+---                                                                    
+title: "Getting into flow cyto analysis in R, basics"
+author: "Darach Miller"                                                   
+date: "`r Sys.Date()`"                                                    
+output:                                                                   
+  html_document:                                                          
+    self_contained: true                                                  
+---                           
+
+I believe you should compartamentalize your reading in from files
+and your analysis. You should use the below script is just to 
+yank it in, and spit it out as a CSV.
+
+Below is just the directory where my FCS files are. 
+
+```{r}
+directories <- c(
+    exp154sytoxgreen="/home/zed/lab/data/mine/1601/exp154sytoxgreen/"
+  )
+directories
+dir(directories[1])
+```
+
+See how that works? Change it to where your stuff is. Name it
+according to the experiment name.
+
+
+Here we immediately use `flowCore` just to extract the measurements 
+from the machine. Note the lack of any confounding transformation.
+This is 2016, and I'm pretty sure these are linear digital detectors.
+
+```{r}
+require(flowCore)
+datz <- list()
+for (expr in names(directories)) {
+  dirz <- directories[expr]
+  for (fz in dir(dirz)[grep("\\.fcs$",dir(dirz))]) { 
+    nameToSaveAs <- paste0(expr, warning=F,"_",sub(".fcs","",fz))
+    print(paste0("doing ",dirz,"",fz,", saving it as ",nameToSaveAs))
+    datz[[nameToSaveAs]] <- data.frame(
+        exprs(read.FCS(paste0(dirz,fz),transformation=FALSE))
+      )
+  }
+}
+```
+
+The below takes everything in `datz` and `rbind()`'s it together
+to make one large data frame. This might take a while.
+
+```{r}
+if (exists("lrgdf")) {rm(lrgdf)}
+for (fz in names(datz)) {
+  relevantBit <- gsub(".+?\\s(.+?)$","\\1",fz)
+  tmpdf <- data.frame(datz[[as.character(fz)]],
+    colsplit(relevantBit,"_",names=c("sample","dye","pretreatment")))
+  if (!exists("lrgdf")) { lrgdf <- tmpdf } 
+  else { lrgdf <- rbind(lrgdf,tmpdf) }
+}
+dim(lrgdf)
+head(lrgdf)
+```
+
+And you can save that as a csv if you'd like:
+
+```{r}
+write.csv(lrgdf,file=paste0(names(directories)[1],"160510.csv"),
+  quote=F,row.names=F)
+```
+
+Since I've got your attention, I'm going to show you how to gate 
+like a neadertal. It works.
+Note that I'm plotting a random subset of rows in order to make this 
+plot more quickly.
+
+```{r}
+aSubsetOflrgdf <- lrgdf[sample(1:nrow(lrgdf),1e4),]
+g <- ggplot(aSubsetOflrgdf)+
+  aes(x=log(FSC.A),y=log(FSC.H))+
+  geom_point(size=.5,alpha=.05)
+g
+g+geom_vline(xintercept=10.5)+geom_abline(slope=0.9,intercept=1.6)
+```
+
+Looks like singlets.
+
+
+```{r}
+subdf<-subset(lrgdf,log(FSC.A)>10.5&(log(FSC.H)>log(FSC.A)*0.9+1.6))
+aSubsetOfsubdf <- subdf[sample(1:nrow(subdf),1e4),]
+```
+
+```{r}
+g <- ggplot(aSubsetOfsubdf)+
+  aes(x=log(FSC.A),y=log(FL1.A))+
+  geom_point(size=.5,alpha=.05)+
+  facet_wrap(~sample)
+g
+g+geom_hline(yintercept=13)
+```
+
+Same thing.
+
+```{r}
+subdf <- subset(subdf,log(FL1.A)>13)
+aSubsetOfsubdf <- subdf[sample(1:nrow(subdf),1e4),]
+```
+
+```{r}
+g <- ggplot(aSubsetOfsubdf)+
+  aes(x=log(FSC.A),y=log(FL1.A))+
+  geom_point(size=.5,alpha=.05)+
+  facet_wrap(~sample)
+g+coord_cartesian(xlim=c(10.5,14.5),ylim=c(13,15))
+```
+
+Close enoguht, although you can see some contamination. Let's look
+at that in a different way, this time for all datar.
+
+```{r}
+subdf$Machine <- ifelse(grepl("g",subdf$sample),
+  "chemostat1","chemostat2")
+subdf$Limitation <- ifelse(grepl(".[123]",subdf$sample),
+  "Limitation1","Limitation2")
+subdf$Rate <- rep(c("slow","medium","fast"),2)[
+  as.numeric(sub("^.","",subdf$sample))]
+g <- ggplot(subdf)+aes(x=log10(FL1.A),col=Rate)+
+  stat_bin(aes(y = ..density..),binwidth=0.005,geom="line",
+    position="identity",size=.5)+
+  stat_bin(aes(y = ..density..),binwidth=0.005,geom="point",
+    position="identity",size=.5)+
+  coord_cartesian(xlim=c(5.9,6.6))+
+  theme(legend.position="bottom")
+g+facet_grid(Machine~Limitation)
+g%+%subset(subdf,Limitation=="Limitation1"&Rate=="fast"&Machine=="chemostat2")+
+  guides(col=F)
+```
+
+That's text book.
+
+One of these days, I'll write up how to use `mle2` to fit a mixed
+model to estimate cell cycle contribution.
+
+Anyone want to contribute and do this one?
+
